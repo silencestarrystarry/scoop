@@ -39,9 +39,11 @@ foreach ($arch in $targets.Keys) {
     $auto = $manifest.autoupdate.architecture.PSObject.Properties[$arch].Value
     if ($null -eq $entry -or $null -eq $auto) { throw "Missing architecture in manifest: $arch" }
     $templateUrl = 'https://github.com/Fanch-hui/codex-bridge/releases/download/v$version/' + $assetName
-    if ($entry.url -ne $templateUrl -or $auto.url -ne $templateUrl) {
-        throw "Unexpected URL template for $arch"
-    }
+    if ($auto.url -ne $templateUrl) { throw "Unexpected autoupdate template for $arch" }
+    $oldUrl = $templateUrl.Replace('$version', $currentVersion)
+    if ($entry.url -ne $oldUrl) { throw "Unexpected active download URL for $arch" }
+    $newUrl = $templateUrl.Replace('$version', $latestVersion)
+    if ($entry.url -ne $newUrl) { $entry.url = $newUrl; $changed = $true }
     if ($entry.hash -ne $newHash) { $entry.hash = $newHash; $changed = $true }
 }
 
