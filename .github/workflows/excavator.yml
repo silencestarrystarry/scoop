@@ -1,6 +1,9 @@
 name: Update Scoop manifests
 
 on:
+  push:
+    paths:
+      - ".github/workflows/excavator.yml"
   schedule:
     - cron: "23 */6 * * *"
   workflow_dispatch:
