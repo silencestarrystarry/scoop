@@ -48,8 +48,8 @@ foreach ($package in $packages) {
         else { $assetName = "SFW-$version-$target.exe" }
         $entry = $manifest.architecture.PSObject.Properties[$arch].Value
         $auto = $manifest.autoupdate.architecture.PSObject.Properties[$arch].Value
-        if ($null -eq $entry -or $null -eq $auto) { throw "Missing architecture $arch: $($package.name)" }
-        if ($entry.url -ne $auto.url) { throw "Autoupdate URL mismatch for $arch: $($package.name)" }
+        if ($null -eq $entry -or $null -eq $auto) { throw "Missing architecture ${arch}: $($package.name)" }
+        if ($entry.url -ne $auto.url) { throw "Autoupdate URL mismatch for ${arch}: $($package.name)" }
         $actualUrl = $entry.url.Replace('$version', $version)
         $expectedUrl = "https://github.com/$($package.upstream)/releases/download/v$version/$assetName$($package.suffix)"
         if ($actualUrl -ne $expectedUrl) { throw "Unexpected $arch URL: $actualUrl" }
