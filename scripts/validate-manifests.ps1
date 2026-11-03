@@ -64,6 +64,13 @@ foreach ($package in $packages) {
         if ($manifest.shortcuts[0][0] -ne 'codex-bridge-windows-app.exe') { throw 'Wrong Codex Bridge executable' }
     } else {
         if (!$manifest.installer.script -or !$manifest.uninstaller.script) { throw 'SFW nonportable installer/uninstaller missing' }
+        foreach ($section in @('installer', 'uninstaller')) {
+            $fragment = ($manifest.$section.script -join "`n")
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseInput($fragment, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) { throw "Invalid SFW $section script: $($parseErrors -join '; ')" }
+        }
     }
 }
 Write-Host 'Both Starry Scoop manifests validated against official GitHub release metadata.'
