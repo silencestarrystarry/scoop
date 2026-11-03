@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ".github/workflows/excavator.yml"
+      - "scripts/update-codex-bridge.ps1"
   schedule:
     - cron: "23 */6 * * *"
   workflow_dispatch:
@@ -12,17 +13,36 @@ permissions:
   contents: write
 
 concurrency:
-  group: scoop-excavator
+  group: scoop-manifest-updater
   cancel-in-progress: false
 
 jobs:
   update:
+    if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout bucket
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Check upstream releases and update manifests
-        uses: ScoopInstaller/GithubActions@5bceeda181721d9d10a18fdcc3ddca6f33467ae6
+      - name: Verify official stable release and update manifest
+        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          SKIP_UPDATED: "1"
+        run: ./scripts/update-codex-bridge.ps1
+      - name: Commit and push any manifest update
+        shell: pwsh
+        run: |
+          git add -- bucket/codex-bridge.json
+          if ($LASTEXITCODE -ne 0) { throw 'git add failed' }
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host 'Already up to date; nothing to commit.'
+            exit 0
+          }
+          if ($LASTEXITCODE -ne 1) { throw 'git diff failed' }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'codex-bridge: Update Scoop manifest'
+          if ($LASTEXITCODE -ne 0) { throw 'git commit failed' }
+          git push origin HEAD:main
+          if ($LASTEXITCODE -ne 0) { throw 'git push failed' }
