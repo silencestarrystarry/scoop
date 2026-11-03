@@ -1,14 +1,16 @@
-name: Validate Scoop manifest
+name: Validate Scoop manifests
 
 on:
   push:
     paths:
-      - "bucket/**"
-      - ".github/workflows/validate.yml"
+      - 'bucket/**'
+      - 'scripts/**'
+      - '.github/workflows/validate.yml'
   pull_request:
     paths:
-      - "bucket/**"
-      - ".github/workflows/validate.yml"
+      - 'bucket/**'
+      - 'scripts/**'
+      - '.github/workflows/validate.yml'
   workflow_dispatch:
 
 permissions:
@@ -17,53 +19,12 @@ permissions:
 jobs:
   validate:
     runs-on: windows-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Validate manifest against official GitHub release metadata
+      - name: Validate manifests, scripts, URLs and SHA256
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $path = "bucket/codex-bridge.json"
-          $manifest = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
-          $version = [string]$manifest.version
-          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid stable version: $version" }
-          if ($manifest.license -ne 'Apache-2.0') { throw 'Unexpected license' }
-          if ($manifest.checkver.github -ne 'https://github.com/Fanch-hui/codex-bridge') {
-            throw 'Unexpected upstream checkver source'
-          }
-          $headers = @{
-            Authorization = "Bearer $env:GITHUB_TOKEN"
-            Accept = "application/vnd.github+json"
-            "User-Agent" = "codex-bridge-scoop-validation"
-          }
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/Fanch-hui/codex-bridge/releases/tags/v$version" -Headers $headers
-          if ($release.draft -or $release.prerelease) { throw 'Manifest must target a stable release' }
-          $architectures = @{ "64bit" = "x64"; "arm64" = "arm64" }
-          foreach ($arch in $architectures.Keys) {
-            $target = $architectures[$arch]
-            $assetName = "codex-bridge-windows-$target.zip"
-            $entry = $manifest.architecture.PSObject.Properties[$arch].Value
-            $auto = $manifest.autoupdate.architecture.PSObject.Properties[$arch].Value
-            if ($null -eq $entry -or $null -eq $auto) { throw "Missing $arch architecture" }
-            $expectedUrl = "https://github.com/Fanch-hui/codex-bridge/releases/download/v$version/$assetName"
-            if ($entry.url.Replace('$version', $version) -ne $expectedUrl) {
-              throw "Invalid URL for $arch"
-            }
-            if ($auto.url.Replace('$version', $version) -ne $expectedUrl) {
-              throw "Invalid autoupdate URL for $arch"
-            }
-            if ($entry.hash -notmatch '^[0-9a-f]{64}$') { throw "Invalid SHA256 for $arch" }
-            $assets = @($release.assets | Where-Object { $_.name -eq $assetName })
-            if ($assets.Count -ne 1) { throw "Missing or duplicated release asset: $assetName" }
-            if ($assets[0].digest -ne "sha256:$($entry.hash)") {
-              throw "Upstream release SHA256 mismatch for $arch"
-            }
-            Write-Host "$arch OK: $assetName"
-          }
-          if ($manifest.shortcuts[0][0] -ne 'codex-bridge-windows-app.exe') {
-            throw 'Unexpected executable shortcut'
-          }
-          Write-Host "Codex Bridge $version manifest validated against upstream release metadata."
+        run: ./scripts/validate-manifests.ps1
