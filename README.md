@@ -1,42 +1,82 @@
-# Scoop Bucket — Codex Bridge
+# Starry · Scoop Bucket
 
-个人维护的 Scoop Bucket，使用 [Fanch-hui/codex-bridge](https://github.com/Fanch-hui/codex-bridge) 官方 Windows 便携包。此仓库不是 Codex Bridge 或 ScoopInstaller 的官方仓库。
+自用、可扩展的 Windows Scoop Bucket，使用上游项目发布的官方文件并核验 SHA256。该仓库不是 ScoopInstaller、Codex Bridge 或 SagerNet 官方维护的仓库。
 
-## 安装
+**仓库：** https://github.com/silencestarrystarry/scoop  
+**推荐本地别名：** `starry`（别名只影响你的电脑，不需要修改 GitHub 仓库名）
 
-在 PowerShell 中：
+## 1. 添加 Bucket
 
 ```powershell
-scoop bucket add bridge https://github.com/silencestarrystarry/scoop
-scoop install bridge/codex-bridge
+scoop bucket add starry https://github.com/silencestarrystarry/scoop
+scoop bucket list
 ```
 
-支持 Windows **x64 / ARM64**。会创建 “Codex Bridge” 开始菜单快捷方式，程序放在 Scoop 安装目录。
+如先前已添加同一仓库为 `bridge`：
 
-如先前使用本地 `codex-bridge.json` 安装过同名应用，请先退出程序、备份设置，再执行 `scoop uninstall codex-bridge`，然后通过新 bucket 安装。不要同时运行安装版与便携版实例。
+```powershell
+scoop bucket rm bridge
+scoop bucket add starry https://github.com/silencestarrystarry/scoop
+```
 
-## 升级
+删除 Bucket 的注册不会自动卸载已装软件。迁移旧版本地清单前先备份数据。
+
+## 2. 已收录软件
+
+| 软件 | Scoop 命令 | 包形式 | 架构 |
+| --- | --- | --- | --- |
+| [Codex Bridge](https://github.com/Fanch-hui/codex-bridge) | `scoop install starry/codex-bridge` | 官方便携 ZIP | x64 / ARM64 |
+| [sing-box for Desktop](https://sing-box.sagernet.org/clients/desktop/) | `scoop install -g starry/sing-box-desktop` | **官方 NSIS 系统安装器，非便携** | x64 / x86 / ARM64 |
+
+`codex-bridge` 在 Scoop 应用目录中解压运行，添加开始菜单快捷方式；`sing-box-desktop` 会以 `/allusers /S` 运行官方 Windows 安装器，**不会安装到 Scoop 版本目录**，需要使用管理员 PowerShell 和 `-g`。
+
+### sing-box Desktop 的现有 WinGet 安装
+
+如果已通过 WinGet 或官方 EXE 安装了 sing-box Desktop，**建议保持现状，不必再通过 Scoop 安装一次**。Scoop 的安装脚本会尝试识别现有 sing-box 卸载注册项，避免覆盖。
+
+只有确定迁移至 Scoop 管理时，才先从 WinGet/Windows 应用管理中卸载原程序，备份配置并完全退出 SFW，再从管理员 PowerShell 运行 `scoop install -g starry/sing-box-desktop`。SFW 官方卸载器默认保留数据，但仍建议单独备份。
+
+sing-box Desktop 的安装器不支持通过 Scoop 指定应用目录。它涉及系统服务和权限检查，不建议通过 7-Zip 强行解包当作便携版。此非便携清单目前完成了 GitHub CI 静态检查，**尚未在用户 Windows 系统中实装测试**。
+
+## 3. 更新与卸载
 
 ```powershell
 scoop update
 scoop update codex-bridge
+# 管理员 PowerShell（仅 sing-box Desktop 非便携版）
+scoop update -g sing-box-desktop
 ```
 
-Scoop 不会自行升级本机软件，需要你运行以上命令；此仓库的自动化负责维护新版清单。升级前请从托盘完全退出 Codex Bridge，不要在 Scoop 管理的便携目录中使用应用自身的内置升级功能。
+卸载：
 
-## 自动维护
+```powershell
+scoop uninstall codex-bridge
+# 管理员 PowerShell
+scoop uninstall -g sing-box-desktop
+```
 
-- `bucket/codex-bridge.json`：含官方 x64/ARM64 下载地址、SHA256、`checkver` 和 `autoupdate`
-- `.github/workflows/excavator.yml`：每 6 小时检查 [GitHub Releases](https://github.com/Fanch-hui/codex-bridge/releases) 的最新稳定版，使用 [ScoopInstaller/GithubActions](https://github.com/ScoopInstaller/GithubActions) 生成并提交清单更新
-- `.github/workflows/validate.yml`：在清单变动时验证文件、地址和 GitHub 官方发布的 SHA256 摘要
+**更新前从系统托盘完全退出对应程序。** Scoop 管理的 Codex Bridge 应使用 Scoop 更新，而不是让程序自身改写 Scoop 目录。
 
-请检查仓库 **Settings → Actions → General**：允许 GitHub Actions，并确保工作流具备所需的 `contents: write` 权限。打开 **Actions → Update Scoop manifests → Run workflow** 可以手动执行首次检查。
+## 4. 自动维护
 
-GitHub Actions 的 `schedule` 在低活跃度仓库中可能延迟或被停用。若自动更新停滞，请检查 Actions 页面。
+每 6 小时，`.github/workflows/excavator.yml` 通过两份更新脚本分别查询上游最新稳定版本和官方 GitHub Release SHA256，若有变更则更新 `bucket/*.json` 并尝试提交。
 
-## 查看状态
+`.github/workflows/validate.yml` 对两份清单进行 PowerShell 解析、下载 URL 格式和官方 SHA256 对比。
 
 - [自动更新工作流](https://github.com/silencestarrystarry/scoop/actions/workflows/excavator.yml)
 - [清单校验工作流](https://github.com/silencestarrystarry/scoop/actions/workflows/validate.yml)
 
-本仓库的发布与静态检查并不等于在 Windows 实机完成安装测试。程序运行可能需要系统环境依赖，请参考上游项目文档。
+仓库设置中需允许 Actions 的 `GITHUB_TOKEN` 写入 contents。GitHub 的定时任务可能延迟或因长期不活跃而被停用。自动化更新的是 GitHub 清单；**你的电脑仍需手动执行 `scoop update` 才会升级应用。**
+
+## 5. 连接代理（如有需要）
+
+假设 sing-box 在 `127.0.0.1:2080` 提供 HTTP/mixed 代理：
+
+```powershell
+scoop config proxy 127.0.0.1:2080
+scoop update
+# 不再使用时
+scoop config rm proxy
+```
+
+这里只修改 Scoop 的网络代理配置，不修改 Windows 系统代理。
