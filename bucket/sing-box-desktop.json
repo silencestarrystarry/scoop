@@ -20,6 +20,11 @@
     "installer": {
         "script": [
             "if (!$global -or !(is_admin)) { throw 'SFW needs an elevated PowerShell and scoop install -g starry/sing-box-desktop' }",
+            "if ($cmd -eq 'install') {",
+            "    $roots = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*', 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*', 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*')",
+            "    $installed = @($roots | ForEach-Object { Get-ItemProperty -Path $_ -ErrorAction SilentlyContinue } | Where-Object { $_.DisplayName -eq 'sing-box' -and $_.UninstallString })",
+            "    if ($installed.Count -gt 0) { throw 'sing-box for Desktop is already installed. Uninstall its WinGet/manual installation before switching management to Scoop.' }",
+            "}",
             "$package = Join-Path $dir 'setup.exe'",
             "if (!(Test-Path -LiteralPath $package -PathType Leaf)) { throw 'SFW installer is missing' }",
             "$process = Start-Process -FilePath $package -ArgumentList @('/allusers', '/S') -Wait -PassThru",
