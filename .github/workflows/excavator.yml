@@ -3,17 +3,17 @@ name: Update Scoop manifests
 on:
   push:
     paths:
-      - ".github/workflows/excavator.yml"
-      - "scripts/update-codex-bridge.ps1"
+      - '.github/workflows/excavator.yml'
+      - 'scripts/update-*.ps1'
   schedule:
-    - cron: "23 */6 * * *"
+    - cron: '23 */6 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: scoop-manifest-updater
+  group: starry-scoop-updater
   cancel-in-progress: false
 
 jobs:
@@ -24,25 +24,39 @@ jobs:
     steps:
       - name: Checkout bucket
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Verify official stable release and update manifest
+      - name: Check updater scripts for PowerShell syntax errors
+        shell: pwsh
+        run: |
+          foreach ($file in (Get-ChildItem scripts/update-*.ps1)) {
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) { throw "Invalid PowerShell in $($file.Name): $($parseErrors -join '; ')" }
+          }
+      - name: Update Codex Bridge from official release
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/update-codex-bridge.ps1
-      - name: Commit and push any manifest update
+      - name: Update sing-box Desktop from official release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./scripts/update-sing-box-desktop.ps1
+      - name: Commit and push changed manifests
         shell: pwsh
         run: |
-          git add -- bucket/codex-bridge.json
+          git add -- bucket/codex-bridge.json bucket/sing-box-desktop.json
           if ($LASTEXITCODE -ne 0) { throw 'git add failed' }
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 0) {
-            Write-Host 'Already up to date; nothing to commit.'
+            Write-Host 'Both packages are up to date.'
             exit 0
           }
           if ($LASTEXITCODE -ne 1) { throw 'git diff failed' }
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'codex-bridge: Update Scoop manifest'
+          git commit -m 'chore: Update Starry Scoop manifests'
           if ($LASTEXITCODE -ne 0) { throw 'git commit failed' }
           git push origin HEAD:main
           if ($LASTEXITCODE -ne 0) { throw 'git push failed' }
