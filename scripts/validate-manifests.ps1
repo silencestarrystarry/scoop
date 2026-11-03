@@ -49,10 +49,19 @@ foreach ($package in $packages) {
         $entry = $manifest.architecture.PSObject.Properties[$arch].Value
         $auto = $manifest.autoupdate.architecture.PSObject.Properties[$arch].Value
         if ($null -eq $entry -or $null -eq $auto) { throw "Missing architecture ${arch}: $($package.name)" }
-        if ($entry.url -ne $auto.url) { throw "Autoupdate URL mismatch for ${arch}: $($package.name)" }
-        $actualUrl = $entry.url.Replace('$version', $version)
         $expectedUrl = "https://github.com/$($package.upstream)/releases/download/v$version/$assetName$($package.suffix)"
-        if ($actualUrl -ne $expectedUrl) { throw "Unexpected $arch URL: $actualUrl" }
+        if ($entry.url -ne $expectedUrl -or $entry.url.Contains('$version')) {
+            throw "Unexpected active download URL for ${arch}: $($package.name) - $($entry.url)"
+        }
+        if ($package.name -eq 'sing-box-desktop') {
+            $templateAssetName = 'SFW-$version-' + $target + '.exe'
+        } else {
+            $templateAssetName = $assetName
+        }
+        $expectedTemplate = "https://github.com/$($package.upstream)/releases/download/v" + '$version' + "/$templateAssetName$($package.suffix)"
+        if ($auto.url -ne $expectedTemplate) {
+            throw "Unexpected autoupdate template for ${arch}: $($package.name)"
+        }
         $assets = @($release.assets | Where-Object { $_.name -eq $assetName })
         if ($assets.Count -ne 1) { throw "Missing official release asset: $assetName" }
         if ($entry.hash -notmatch '^[0-9a-f]{64}$' -or $assets[0].digest -ne "sha256:$($entry.hash)") {
